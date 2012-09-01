@@ -1,10 +1,12 @@
 #!/bin/bash
 
 FLAGS_ROOT=false
+PUSH_KEYS=true
 
 while [[ "$1" = -* ]]; do
 	case "$1" in
 		"-r" ) FLAGS_ROOT=true;;
+		"-n" ) PUSH_KEYS=false;;
 		* ) echo "unknown switch $1"; exit;;
 	esac
 	shift
@@ -14,6 +16,7 @@ if [ X"" == X"$1" ]; then
 	echo "Usage: sshpush [-r] <host>"
 	echo "  authorizes local keys on remote ssh server"
 	echo "  -r  attempt to authorize on root also"
+	echo "  -n  do not push keys"
 	exit
 fi
 
@@ -38,18 +41,20 @@ fi
 if [ -f ~/.ssh/id_rsa ]; then
 	echo "pushing authorization"
 	cat ~/.ssh/id_rsa.pub ~/.ssh/authorized_keys | ssh "$1" 'cat - ~/.ssh/authorized_keys | sort -u > ~/.ssh/authorized_keys'
-	LCS=`cat ~/.ssh/id_rsa.pub | md5sum`
-	RCS=`ssh "$1" 'if [ -f ~/.ssh/id_rsa.pub ]; then cat ~/.ssh/id_rsa.pub | md5sum; fi'`
-	if [ "X$LCS" != "X$RCS" ]; then
-		echo "pushing keys"
-		ssh "$1" 'if [ -f ~/.ssh/id_rsa ]; then mv ~/.ssh/id_rsa ~/.ssh/id_rsa_old; mv ~/.ssh/id_rsa.pub ~/.ssh/id_rsa.pub_old; fi'
-		scp ~/.ssh/id_rsa* "$1":.ssh/
-	else
-		echo "keys match"
+	if [ $PUSH_KEYS = true ]; then
+		LCS=`cat ~/.ssh/id_rsa.pub | md5sum`
+		RCS=`ssh "$1" 'if [ -f ~/.ssh/id_rsa.pub ]; then cat ~/.ssh/id_rsa.pub | md5sum; fi'`
+		if [ "X$LCS" != "X$RCS" ]; then
+			echo "pushing keys"
+			ssh "$1" 'if [ -f ~/.ssh/id_rsa ]; then mv ~/.ssh/id_rsa ~/.ssh/id_rsa_old; mv ~/.ssh/id_rsa.pub ~/.ssh/id_rsa.pub_old; fi'
+			scp ~/.ssh/id_rsa* "$1":.ssh/
+		else
+			echo "keys match"
+		fi
 	fi
 	if [ $FLAGS_ROOT = true ]; then
 		echo "pushing root keys"
-		ssh -t "$1" 'sudo mkdir -p /root/.ssh && sudo cp --preserve=mode ~/.ssh/authorized_keys ~/.ssh/id_rsa ~/.ssh/id_rsa.pub /root/.ssh; exit'
+		ssh -t "$1" 'sudo mkdir -p ~root/.ssh && sudo cp --preserve=mode ~/.ssh/id_rsa ~/.ssh/id_rsa.pub ~root/.ssh; sudo cat ~/.ssh/authorized_keys ~root/.ssh/authorized_keys | sort -u | sudo tee ~root/.ssh/authorized_keys > /dev/null; exit'
 	fi
 else
 	echo 'no keys, aborting'
