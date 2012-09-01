@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ X"" == X"$1" ]; then
+	echo "Usage: sshpush <host>"
+	echo "  authorizes local keys on remote ssh server"
+	exit
+fi
+
 pull_from_host()
 {
 	echo "pull"
